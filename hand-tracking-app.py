@@ -13,7 +13,7 @@ from werkzeug.utils import secure_filename
 
 from handtracker.handtracker import HandTracker
 
-Payload.max_decode_packets = 50
+Payload.max_decode_packets = 100
 
 BASE_PATH: pathlib.Path = pathlib.Path(__file__).parent
 ALLOWED_EXTENSIONS = {'jpg', 'png'}
@@ -27,7 +27,7 @@ app.config['IMAGES'] = BASE_PATH.joinpath('images')
 
 socketio = SocketIO(app, async_mode="eventlet")
 
-hand_tracker = HandTracker()
+hand_tracker = HandTracker(static_image_mode = False, maxHands = 1, detectionConfidence = 0.4, trackingConfidence = 0.4)
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -82,23 +82,31 @@ def receive_image(image):
     image = base64_to_image(image)
     
     frame_resized = hand_tracker.findHands(image)
-    landmark_list = hand_tracker.findHandLandmarks(frame_resized)
+    landmark_list = hand_tracker.findHandLandmarks(frame_resized, hand_index = 0)
+    # landmark_list = hand_tracker.findHandLandmarks(frame_resized, hand_index = 1)
         
      
     ret, frame_encoded = cv2.imencode('.jpg', frame_resized, encode_param)
     processed_img_data = base64.b64encode(frame_encoded).decode()    
     b64_src = "data:image/jpg;base64,"
     processed_img_data = b64_src + processed_img_data
-    
+    # print('processed image')
     
     emit("processed_image", processed_img_data)
 
 
-@app.route("/", methods=['GET', 'POST'])
+@app.route("/pymodule", methods=['GET', 'POST'])
 def index():
     print('requesting ', request.files)
     return render_template("index-live.html"), 200
 
+@app.route("/", methods=['GET', 'POST'])
+def purejs():
+    return render_template('purejs-live.html'), 200
+
+@app.route("/pyhand", methods=['GET', 'POST'])
+def pyhand():
+    return render_template('index-live.html'), 200
 
 @app.route("/js/<path:filename>", methods=['GET', 'POST'])
 def jsfile(filename):
@@ -106,5 +114,5 @@ def jsfile(filename):
     return send_file(f'templates/static/{filename}'), 200
 
 if __name__ == '__main__':
-    # app.run(host='0.0.0.0', port=5000, debug=True)
+    # app.run(host='0.0.0.0', port=5000, debug=True, ssl_context=('server.crt', 'server.key.secure'))
     socketio.run(app, debug=True, port=5000, host='0.0.0.0', certfile="server.crt", keyfile="server.key")

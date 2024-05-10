@@ -6,7 +6,7 @@ import numpy as np
 
 
 class HandTracker():
-    def __init__(self, static_image_mode: bool = False, maxHands: int = 1, detectionConfidence: float = 0.5, trackingConfidence: float = 0.5):
+    def __init__(self, *, static_image_mode: bool = False, maxHands: int = 1, detectionConfidence: float = 0.5, trackingConfidence: float = 0.5):
         self._mode = static_image_mode
         self._maxHands = maxHands
         self._detectionConfidence = detectionConfidence
@@ -15,7 +15,9 @@ class HandTracker():
         self._mpHands = mp.solutions.hands
         self._hands = self._mpHands.Hands(
             static_image_mode = self._mode,
-            max_num_hands = self._maxHands
+            max_num_hands = self._maxHands,
+            min_detection_confidence = self._detectionConfidence,
+            min_tracking_confidence = self._trackingConfidence
             )
         self._mpDraw = mp.solutions.drawing_utils
         self._results = None
@@ -36,13 +38,17 @@ class HandTracker():
         return img
 
 
-    def findHandLandmarks(self, img: np.ndarray, hand_index: int = 0, draw: bool = True)->list:
+    def findHandLandmarks(self, img: np.ndarray, *, hand_index: int = 0, draw: bool = True)->list:
         landmarks_list: list = []
         
         if(self._results and self._results.multi_hand_landmarks):
-            hand = self._results.multi_hand_landmarks[hand_index]
+            try:
+                hand = self._results.multi_hand_landmarks[hand_index]
+            except:
+                return landmarks_list
+            
             for id, landmark in enumerate(hand.landmark):
-                height, width, colors = img.shape
+                height, width, _ = img.shape
                 x, y = int(landmark.x * width), int(landmark.y * height)
                 landmarks_list.append((id, x, y))
                 if draw:
